@@ -1,0 +1,317 @@
+01_setup.sh no problem
+
+02_setup.sh added current_working_directory and a printout of missing data_dir
+
+--------
+
+/media/bigdisk/git_repos/merlin/misc/scripts/vocoder/world/extract_features_for_merlin.sh
+made some changes in it
+should copy it to scripts dir here instead..
+cp -r /media/bigdisk/git_repos/merlin/misc/scripts/vocoder scripts/
+
+running it, it works
+
+the script contains these lines:
+#bap order depends on sampling freq.
+mcsize=59
+
+What does that mean? Is 59 correct for 16kHz? If so, what is correct for 48?
+
+--------
+
+cp -r /media/bigdisk/git_repos/merlin/misc/scripts/alignment scripts/
+
+from README.md:
+To derive labels, use alignment scripts provided below: <br/>
+a) state_align - https://github.com/CSTR-Edinburgh/merlin/tree/master/misc/scripts/alignment/state_align <br/>
+b) phone_align - https://github.com/CSTR-Edinburgh/merlin/tree/master/misc/scripts/alignment/phone_align
+
+So I start by looking at scripts/alignment/state_align
+setup.sh downloads data and makes config.cfg.
+copied the part that makes config.cfg into make_config_file.sh
+
+cd scripts/alignment/state_align/
+./make_config_file.sh
+a bit meaningless because all the paths need to be edited anyway.
+editing config.cfg
+HTKDIR=/home/harald/htk/htk/HTKTools to get htk 3.4.1
+
+The readme file says to do this:
+./run_aligner.sh config.cfg
+
+Step 1: creating label files from text...
+Please give input: either 1 or 2
+1. /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/database/txt  -- a text directory containing text files
+2. /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/database/cmuarctic.data -- a single text file with each sentence in a new line in festival format
+
+cp ~/git/merlin/egs/slt_arctic/s1/slt_arctic_demo_data/cmuarctic.data database/
+
+./run_aligner.sh config.cfg
+Step 1: creating label files from text...
+Please place your new test sentences (files) in: /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/database/txt !!
+
+:-)
+rmdir database/txt/
+(if the txt directory is there it won't look at the cmuarctic.data file)
+
+./run_aligner.sh config.cfg
+...
+Labels are ready in: /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/database/label_no_align !!
+Step 2: forced-alignment using HTK tools...
+fails with HCopy usage message
+
+in forced_alignment.py:
+IMPORTANT change    wav_dir = os.path.join(work_dir, 'slt_wav')
+IMPORTANT and change so that the script actually uses the path to htk..
+
+python forced_alignment.py
+
+works so trying again with 
+./run_aligner.sh config.cfg
+yes
+
+a number of warnings like "WARNING [-2637]  HeaviestMix: mix 2 in uw has v.small gConst [-107.924583] in /home/harald/htk/htk/HTKTools/HHEd"
+
+--------------------
+
+same thing in phone_align
+Ah but this is using ehmm...
+ok copy config.cfg from state_align and add estdir and festvoxdir
+
+cd ../phone_align
+cp ../state_align/config.cfg .
+emacs config.cfg
+add:
+ESTDIR=/home/harald/festival/speech_tools
+FESTVOXDIR=/home/harald/festival/festvox
+
+emacs run_aligner.sh
+change to:
+cp $WorkDir/cmuarctic.data etc/txt.done.data
+cp $WorkDir/wav/*.wav wav/
+
+./run_aligner.sh config.cfg
+
+ok seems to have worked and quite fast too. The script says
+You should have your labels ready in: label_phone_align !!
+
+But they are in fact in full-context-labels/full (??)
+And they have pau instead of sil..
+Trying anyway..
+
+cd /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1
+cp -r scripts/alignment/phone_align/full-context-labels/full database/label_phone_align
+
+-----------------------
+
+
+./03_run_merlin.sh
+
+ok i'll try it, config settings look good
+
+./03_run_merlin.sh
+Step 1: preparing config files for acoustic, duration models and for test synthesis...
+Duration configuration settings stored in conf/duration_slt_hbtest_demo.conf
+Acoustic configuration settings stored in conf/acoustic_slt_hbtest_demo.conf
+cp: cannot stat '/media/bigdisk/misc/recipes/duration_demo.conf': No such file or directory
+
+in scripts/prepare_config_files_for_synthesis.sh
+change to:
+# Start with a general recipe...
+#cp -f $MerlinDir/misc/recipes/duration_demo.conf $duration_config_file
+#HB
+cp -f $WorkDir/conf/general/duration_demo.conf $duration_config_file
+
+and
+
+# Start with a general recipe...
+#cp -f $MerlinDir/misc/recipes/acoustic_demo.conf $acoustic_config_file
+#HB
+cp -f $WorkDir/conf/general/acoustic_demo.conf $acoustic_config_file
+
+in scripts/submit.sh
+change to:
+#src_dir=$(dirname $1)
+#HB
+src_dir=/media/bigdisk/git_repos/merlin/src
+
+
+./03_run_merlin.sh
+...
+2016-10-19 12:14:27,555 CRITICAL       main    : Could not load file id list from /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/experiments/slt_hbtest_demo/duration_model/data/file_id_list_full.scp
+Traceback (most recent call last):
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 1158, in <module>
+    main_function(cfg)
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 467, in main_function
+    file_id_list = read_file_list(cfg.file_id_scp)
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 68, in read_file_list
+    fid = open(file_name)
+IOError: [Errno 2] No such file or directory: '/media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/experiments/slt_hbtest_demo/duration_model/data/file_id_list_full.scp'
+Lock freed
+Step 3: training acoustic model...
+...
+2016-10-19 12:14:31,372 CRITICAL       main    : Could not load file id list from /media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/experiments/slt_hbtest_demo/acoustic_model/data/file_id_list_full.scp
+Traceback (most recent call last):
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 1158, in <module>
+    main_function(cfg)
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 467, in main_function
+    file_id_list = read_file_list(cfg.file_id_scp)
+  File "/media/bigdisk/git_repos/merlin/src/run_merlin.py", line 68, in read_file_list
+    fid = open(file_name)
+IOError: [Errno 2] No such file or directory: '/media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/experiments/slt_hbtest_demo/acoustic_model/data/file_id_list_full.scp'
+
+mkdir experiments/slt_hbtest_demo/duration_model/data
+cp database/file_id_list.scp experiments/slt_hbtest_demo/duration_model/data/file_id_list_full.scp 
+mkdir experiments/slt_hbtest_demo/acoustic_model/data
+cp database/file_id_list.scp experiments/slt_hbtest_demo/acoustic_model/data/file_id_list_full.scp
+
+But will this be enough? Or will it still be looking for files in the wrong place?
+Yes it does. So different change is needed
+
+in scripts/prepare_config_files.sh
+add:
+#HB
+sed -i s#'data:.*'#'data: %(TOPLEVEL)s/database'# $duration_config_file
+
+and
+
+#HB
+sed -i s#'data:.*'#'data: %(TOPLEVEL)s/database'# $acoustic_config_file
+
+and
+
+#HB
+sed -i s#'in_mgc_dir:.*'#'in_mgc_dir: %(data)s/feat/mgc'# $acoustic_config_file
+sed -i s#'in_bap_dir:.*'#'in_bap_dir: %(data)s/feat/bap'# $acoustic_config_file
+sed -i s#'in_lf0_dir:.*'#'in_lf0_dir: %(data)s/feat/lf0'# $acoustic_config_file
+
+
+change:
+#sed -i s#'label_align:.*'#'label_align: %(TOPLEVEL)s/experiments/'${Voice}'/duration_model/data/label_'${Labels}# $duration_config_file
+#HB
+sed -i s#'label_align:.*'#'label_align: %(TOPLEVEL)s/database/label_'${Labels}# $duration_config_file
+
+and
+
+#sed -i s#'label_align:.*'#'label_align: %(TOPLEVEL)s/experiments/'${Voice}'/acoustic_model/data/label_'${Labels}# $acoustic_config_file
+#HB
+sed -i s#'label_align:.*'#'label_align: %(TOPLEVEL)s/database/label_'${Labels}# $acoustic_config_file
+
+
+in conf/global_settings.conf
+change:
+FileIDList=file_id_list.scp
+
+
+
+Also change in prepare_config_files_for_synthesis.sh:
+add:
+#HB
+sed -i s#'data:.*'#'data: %(TOPLEVEL)s/database'# $duration_config_file
+
+and
+
+#HB
+sed -i s#'data:.*'#'data: %(TOPLEVEL)s/database'# $acoustic_config_file
+
+
+
+IOError: [Errno 2] No such file or directory: '/media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/experiments/slt_hbtest_demo/test_synthesis/test_id_list.scp'
+Shouldn't it come from prepare_labels_from_txt.sh ??
+
+Trying to just create it
+
+mkdir experiments/slt_hbtest_demo/test_synthesis
+harald@harald-Vox:/media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1$ tail -5 database/file_id_list.scp > experiments/slt_hbtest_demo/test_synthesis/test_id_list.scp
+
+mkdir -p experiments/slt_demo_hb_2/test_synthesis/prompt-lab
+cp database/label_phone_align/arctic_a00[56][67890].lab experiments/slt_demo_hb_2/test_synthesis/prompt-lab/
+
+
+Ok all steps work now.
+So the files that needed to change were:
+
+02_setup.sh
+scripts/vocoder/world/extract_features_for_merlin.sh
+scripts/alignment/state_align/make_config_file.sh (added)
+scripts/alignment/state_align/config.cfg
+scripts/alignment/state_align/forced_alignment.py
+scripts/alignment/phone_align/config.cfg
+scripts/alignment/phone_align/run_aligner.sh
+scripts/prepare_config_files.sh
+scripts/prepare_config_files_for_synthesis.sh
+scripts/submit.sh
+conf/global_settings.conf
+
+add to script somewhere:
+after alignment:
+cp -r scripts/alignment/phone_align/full-context-labels/full database/label_phone_align
+
+before dnn training:
+mkdir experiments/slt_hbtest_demo/duration_model/data
+cp database/file_id_list.scp experiments/slt_hbtest_demo/duration_model/data/file_id_list_full.scp 
+mkdir experiments/slt_hbtest_demo/acoustic_model/data
+cp database/file_id_list.scp experiments/slt_hbtest_demo/acoustic_model/data/file_id_list_full.scp
+
+before test synthesis:
+mkdir experiments/slt_hbtest_demo/test_synthesis
+tail -5 database/file_id_list.scp > experiments/slt_hbtest_demo/test_synthesis/test_id_list.scp
+
+
+
+
+######################
+To set things up, try this:
+
+cp -r ${merlin}/egs/build_your_own_voice_hb <new_dirname_to_build_in>
+
+cd into <new_dirname_to_build_in>/s1
+edit conf/global_settings.cfg
+(MerlinDir, WorkDir)
+
+
+01_setup.sh <voice_name>
+copy text files to database/txt
+(or "cat ${merlin}/egs/slt_arctic/s1/slt_arctic_demo_data/cmuarctic.data | perl scripts/scm2txt.pl")
+copy audio files to database/wav
+(cp ~/git/merlin/egs/slt_arctic/s1/slt_arctic_demo_data/wav/*.wav database/wav/)
+./02_prepare_data.sh
+
+cd scripts/vocoder/world
+edit extract_features_for_merlin.sh (datadir)
+./extract_features_for_merlin.sh
+
+cd ../../alignment/state_align
+edit config.cfg (should do this with setup script!)
+./run_aligner.sh config.cfg
+
+cd ../phone_align
+edit config.cfg
+TODO it wants cmuarctic.data instead of database/txt
+cp /media/bigdisk/git_repos/merlin/egs/slt_arctic/s1/slt_arctic_demo_data/cmuarctic.data ../../../database/
+./run_aligner.sh config.cfg
+
+
+cd ../../..
+cp -r scripts/alignment/phone_align/full-context-labels/full database/label_phone_align
+
+
+export VOICE=slt_demo_hb_2
+mkdir experiments/$VOICE/duration_model/data
+cp database/file_id_list.scp experiments/$VOICE/duration_model/data/file_id_list_full.scp 
+mkdir experiments/$VOICE/acoustic_model/data
+cp database/file_id_list.scp experiments/$VOICE/acoustic_model/data/file_id_list_full.scp
+
+TODO make the file list from wav dir
+cp /media/bigdisk/git_repos/merlin/egs/slt_arctic/s1/experiments/slt_arctic_demo/duration_model/data/file_id_list_demo.scp database/file_id_list.scp
+
+mkdir experiments/$VOICE/test_synthesis
+tail -5 database/file_id_list.scp > experiments/$VOICE/test_synthesis/test_id_list.scp
+
+
+./03_run_merlin.sh
+
+mkdir experiments/slt_demo_hb_2/test_synthesis/txt
+echo "This is a first test." > experiments/slt_demo_hb_2/test_synthesis/txt/test_01.txt
+
+./04_merlin_synthesis.sh

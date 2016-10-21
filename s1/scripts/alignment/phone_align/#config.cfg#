@@ -1,0 +1,17 @@
+######################################
+############# PATHS ##################
+######################################
+
+MerlinDir=/media/bigdisk/git_repos/merlin
+frontend=/media/bigdisk/git_repos/merlin/misc/scripts/frontend
+WorkDir=/media/bigdisk/merlin_experiments/build_your_own_voice_copy_161019/s1/database
+
+######################################
+############# TOOLS ##################
+######################################
+
+FESTDIR=/home/harald/festival/festival
+HTKDIR=/home/harald/htk/htk/HTKTools
+ESTDIR=/home/harald/festival/festival
+FESTVOXDIR=/home/harald/festival/festival
+
